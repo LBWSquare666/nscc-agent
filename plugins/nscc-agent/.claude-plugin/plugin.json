@@ -1,7 +1,7 @@
 {
   "name": "nscc-agent",
-  "description": "Let Claude Code run and watch experiments on Singapore's NSCC supercomputer over an SSH session you open once with your own password.",
-  "version": "0.1.0",
+  "description": "Let Claude Code run and watch experiments on Singapore's NSCC supercomputer, over an SSH session you open once with your own password or from the NSCC login node itself.",
+  "version": "0.2.0",
   "author": { "name": "LBWSquare" },
   "homepage": "https://github.com/LBWSquare666/nscc-agent",
   "repository": "https://github.com/LBWSquare666/nscc-agent",
