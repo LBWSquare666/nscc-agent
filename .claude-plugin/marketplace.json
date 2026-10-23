@@ -1,0 +1,14 @@
+{
+  "name": "nscc-agent",
+  "description": "Coding-agent skills for Singapore's NSCC supercomputer.",
+  "owner": {
+    "name": "LBWSquare"
+  },
+  "plugins": [
+    {
+      "name": "nscc-agent",
+      "source": "./plugins/nscc-agent",
+      "description": "Run and watch experiments on Singapore's NSCC supercomputer (ASPIRE 2A) from Claude Code."
+    }
+  ]
+}

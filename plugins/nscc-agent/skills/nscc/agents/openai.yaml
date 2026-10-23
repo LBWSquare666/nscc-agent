@@ -1,0 +1,4 @@
+interface:
+  display_name: "NSCC"
+  short_description: "Run and watch experiments on Singapore's NSCC supercomputer"
+  default_prompt: "Check my NSCC connection, then show my running jobs and the tail of their logs."
