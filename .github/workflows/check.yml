@@ -8,8 +8,15 @@ jobs:
       - name: shellcheck
         run: shellcheck install.sh plugins/nscc-agent/skills/nscc/scripts/nscc.sh
       - name: json
-        run: for f in .claude-plugin/marketplace.json plugins/nscc-agent/.claude-plugin/plugin.json; do python3 -m json.tool "$f" >/dev/null; done
+        run: |
+          for f in .claude-plugin/marketplace.json plugins/nscc-agent/.claude-plugin/plugin.json; do
+            python3 -m json.tool "$f" > /dev/null
+          done
       - name: skill frontmatter
-        run: head -4 plugins/nscc-agent/skills/nscc/SKILL.md | grep -q '^name: nscc$'
+        run: |
+          head -4 plugins/nscc-agent/skills/nscc/SKILL.md | grep -qx 'name: nscc'
       - name: install
-        run: ./install.sh && test -x ~/.claude/skills/nscc/scripts/nscc.sh && test -f ~/.agents/skills/nscc/SKILL.md
+        run: |
+          ./install.sh
+          test -x ~/.claude/skills/nscc/scripts/nscc.sh
+          test -f ~/.agents/skills/nscc/SKILL.md
