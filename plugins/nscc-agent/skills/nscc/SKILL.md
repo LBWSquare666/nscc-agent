@@ -1,15 +1,27 @@
 ---
 name: nscc
-description: Run and watch experiments on Singapore's NSCC supercomputer (ASPIRE 2A) from the user's own computer — upload code and data, set up Python/CUDA/container environments, submit PBS jobs, keep watching them until they finish, read the logs, fix failures and resubmit, and fetch results — over an SSH connection the user opened once with their own password. Use when the user mentions NSCC, ASPIRE 2A, "the supercomputer", PBS/qsub jobs there, or asks to run, monitor, babysit or debug an experiment on NSCC.
+description: Run and watch experiments on Singapore's NSCC supercomputer (ASPIRE 2A) — upload code and data, set up Python/CUDA/container environments, submit PBS jobs, keep watching them until they finish, read the logs, fix failures and resubmit, and fetch results — either from the user's own computer over an SSH connection they opened once with their own password, or from Claude Code running on the NSCC login node itself. Use when the user mentions NSCC, ASPIRE 2A, "the supercomputer", PBS/qsub jobs there, or asks to run, monitor, babysit or debug an experiment on NSCC.
 ---
 
 # NSCC (ASPIRE 2A) for coding agents
 
-You cannot run on NSCC itself, and NSCC accepts **passwords only**, which you must never type, store or forward. So you run on the user's computer and reach NSCC through an SSH ControlMaster socket the user opened **once** in their own terminal. Every command below reuses that socket, with no password.
+NSCC accepts **passwords only**, which you must never type, store or forward. You run in one of two places:
+
+- **A. On the user's computer** (usual): you reach NSCC through an SSH ControlMaster socket the user opened **once** in their own terminal. Every command below reuses that socket, with no password.
+- **B. On the NSCC login node itself** (`hostname` starts with `asp2a-login`): Claude Code was installed there and the user may be steering you from their phone through Remote Control. There is no socket; commands run directly. Setup and limits: `references/on-nscc.md`.
 
 Your main job is to **watch experiments for the user**: submit, wait, read logs, catch failures, fix, resubmit, report.
 
-All commands go through `scripts/nscc.sh` in this skill's directory (call it by its full path). It reads `NSCC_USER`, `NSCC_HOST`, `NSCC_PROJECT` from the environment or from `~/.config/nscc/config`.
+All commands go through `scripts/nscc.sh` in this skill's directory (call it by its full path). It reads `NSCC_USER`, `NSCC_HOST`, `NSCC_PROJECT` from the environment or from `~/.config/nscc/config`, and detects mode B from the hostname (`NSCC_LOCAL=1` forces it).
+
+## 0. Mode B: running on NSCC
+
+If `nscc.sh check` prints `running on NSCC itself`, skip section 1's connection step and keep these rules:
+
+- `run`, `submit`, `jobs`, `status`, `tail`, `wait` work as below. `put`/`get` are not needed: files are already on NSCC (`cp`/`rsync` within NSCC, `git pull` on the login node).
+- You share a **login node** with other users: edit, install, download, `qsub`, `qstat` only. Anything heavier than a few CPU-minutes goes in a PBS job.
+- The user is often away. Prefer finishing a decision you are allowed to make over leaving a question open; when you must ask, ask one clear question and keep the job state in `docs/experiments.md` so nothing depends on the chat.
+- You live in `tmux` on one of two login nodes. If you are restarted, run `nscc.sh jobs` and read `docs/experiments.md` before anything else.
 
 ## 1. Before anything: settings and connection
 
@@ -52,7 +64,7 @@ All commands go through `scripts/nscc.sh` in this skill's directory (call it by 
    - walltime hit → resubmit with resume.
 6. **Keep a short log** of job ids, what changed and the outcome (in the project, e.g. `docs/experiments.md`), so the user and the next session can follow.
 
-The socket lives on the user's computer: if it sleeps or goes offline, commands exit 2. Jobs keep running on NSCC, and PBS keeps their history, so nothing is lost: ask the user to log in again, run `jobs`, and carry on with `wait`/`status`. Suggest keeping the machine awake for long runs.
+In mode A the socket lives on the user's computer: if it sleeps or goes offline, commands exit 2. Jobs keep running on NSCC, and PBS keeps their history, so nothing is lost: ask the user to log in again, run `jobs`, and carry on with `wait`/`status`. Suggest keeping the machine awake for long runs, or mode B (`references/on-nscc.md`) for overnight ones.
 
 ## 4. PBS rules that bite
 

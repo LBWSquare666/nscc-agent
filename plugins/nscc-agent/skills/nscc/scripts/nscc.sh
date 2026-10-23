@@ -11,6 +11,10 @@
 #   NSCC_PROJECT  PBS project id, added as qsub -P   (for submit)
 #   NSCC_SOCKET   control socket                     (default ~/.ssh/cm/nscc-<user>@<host>.sock)
 #   NSCC_POLL     seconds between checks in wait     (default 60)
+#   NSCC_LOCAL    1 = the agent runs on NSCC itself  (default: 1 on asp2a-login* hosts, else 0)
+#
+# On NSCC itself (references/on-nscc.md) there is no socket and no password: commands run
+# directly and put/get are not needed.
 #
 # Commands:
 #   login                         print the login command (does not run it)
@@ -31,10 +35,14 @@ set -euo pipefail
 CONF="${XDG_CONFIG_HOME:-$HOME/.config}/nscc/config"
 if [[ -f "$CONF" ]]; then
   while IFS='=' read -r k v; do
-    [[ "$k" =~ ^NSCC_(USER|HOST|PROJECT|SOCKET|POLL)$ ]] || continue
+    [[ "$k" =~ ^NSCC_(USER|HOST|PROJECT|SOCKET|POLL|LOCAL)$ ]] || continue
     [[ -n "${!k:-}" ]] || export "$k=$v"
   done < <(grep -E '^NSCC_[A-Z]+=' "$CONF")
 fi
+if [[ -z "${NSCC_LOCAL:-}" ]]; then
+  if [[ "$(hostname)" == asp2a-login* ]]; then NSCC_LOCAL=1; else NSCC_LOCAL=0; fi
+fi
+if [[ "$NSCC_LOCAL" == 1 ]]; then NSCC_USER="${NSCC_USER:-$(id -un)}"; fi
 NSCC_HOST="${NSCC_HOST:-aspire2antu.nscc.sg}"
 NSCC_SOCKET="${NSCC_SOCKET:-$HOME/.ssh/cm/nscc-${NSCC_USER:-unset}@${NSCC_HOST}.sock}"
 NSCC_POLL="${NSCC_POLL:-60}"
@@ -61,6 +69,7 @@ lost() {
 
 # Run on NSCC. ssh exits 255 only when the connection itself failed.
 r() {
+  if [[ "$NSCC_LOCAL" == 1 ]]; then bash -c "$*"; return; fi
   local rc=0
   # shellcheck disable=SC2029  # the remote command is deliberately built on this side
   ssh "${SSH_OPTS[@]}" "$(target)" "$@" || rc=$?
@@ -69,27 +78,37 @@ r() {
 }
 
 connect() {
+  [[ "$NSCC_LOCAL" == 1 ]] && return
   [[ -n "${NSCC_USER:-}" ]] || die "NSCC_USER is not set. Export it, or put NSCC_USER=<username> in $CONF"
   ssh -O check -o "ControlPath=$NSCC_SOCKET" "$(target)" >/dev/null 2>&1 || lost
 }
 
+not_local() {
+  [[ "$NSCC_LOCAL" == 1 ]] && die "already on NSCC: files are local, use cp or rsync directly"
+  return 0
+}
+
 cmd="${1:-help}"; shift || true
 case "$cmd" in
-  login)  [[ -n "${NSCC_USER:-}" ]] || die "NSCC_USER is not set"; login_cmd ;;
-  check)  connect; echo "nscc: connected to $(target) ($(r hostname))" ;;
+  login)  [[ "$NSCC_LOCAL" == 1 ]] && { echo "nscc: already on NSCC ($(hostname)), no login needed"; exit 0; }
+          [[ -n "${NSCC_USER:-}" ]] || die "NSCC_USER is not set"; login_cmd ;;
+  check)  connect
+          if [[ "$NSCC_LOCAL" == 1 ]]; then echo "nscc: running on NSCC itself as $NSCC_USER ($(hostname))"
+          else echo "nscc: connected to $(target) ($(r hostname))"; fi ;;
   run)    connect
           if [[ $# -gt 0 ]]; then r "$*"; else r 'bash -s'; fi ;;
-  put)    connect; [[ $# -ge 2 ]] || die "usage: nscc.sh put <local> <remote> [rsync options]"
+  put)    not_local; connect; [[ $# -ge 2 ]] || die "usage: nscc.sh put <local> <remote> [rsync options]"
           src="$1" dst="$2"; shift 2
           rsync -a --partial --info=progress2 -e "ssh ${SSH_OPTS[*]}" "$@" "$src" "$(target):$dst" ;;
-  get)    connect; [[ $# -ge 2 ]] || die "usage: nscc.sh get <remote> <local> [rsync options]"
+  get)    not_local; connect; [[ $# -ge 2 ]] || die "usage: nscc.sh get <remote> <local> [rsync options]"
           src="$1" dst="$2"; shift 2
           rsync -a --partial --info=progress2 -e "ssh ${SSH_OPTS[*]}" "$@" "$(target):$src" "$dst" ;;
   submit) connect; [[ $# -ge 1 && -f "$1" ]] || die "usage: nscc.sh submit <local script> [qsub options]"
           script="$1"; shift
           dir="$(r 'mkdir -p ~/.nscc-agent/jobs && cd ~/.nscc-agent/jobs && pwd')"
           remote="$dir/$(date +%Y%m%d-%H%M%S)-$(basename "$script")"
-          scp -q "${SSH_OPTS[@]}" "$script" "$(target):$remote" || lost "upload failed"
+          if [[ "$NSCC_LOCAL" == 1 ]]; then cp "$script" "$remote"
+          else scp -q "${SSH_OPTS[@]}" "$script" "$(target):$remote" || lost "upload failed"; fi
           proj=""; [[ -n "${NSCC_PROJECT:-}" ]] && proj="-P $NSCC_PROJECT"
           r "qsub $proj $* $remote" ;;
   jobs)   connect
@@ -113,8 +132,9 @@ case "$cmd" in
           grep -E '^ *(Job_Name|resources_used.walltime|comment) =' <<<"$info" || true
           if [[ -n "$log" ]]; then echo "--- $log"; r "tail -n 40 $log" || true; fi
           [[ "$code" == 0 ]] ;;
-  close)  [[ -n "${NSCC_USER:-}" ]] || die "NSCC_USER is not set"
+  close)  [[ "$NSCC_LOCAL" == 1 ]] && exit 0
+          [[ -n "${NSCC_USER:-}" ]] || die "NSCC_USER is not set"
           ssh -O exit -o "ControlPath=$NSCC_SOCKET" "$(target)" 2>&1 || true ;;
-  help|-h|--help) sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//' ;;
+  help|-h|--help) sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//' ;;
   *)      die "unknown command '$cmd' (try: nscc.sh help)" ;;
 esac
