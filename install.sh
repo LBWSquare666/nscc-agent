@@ -7,7 +7,7 @@
 set -euo pipefail
 
 REPO="https://github.com/LBWSquare666/nscc-agent"
-here="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
+here="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)" || here=""
 src="$here/plugins/nscc-agent/skills/nscc"
 if [[ ! -f "$src/SKILL.md" ]]; then
   tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
