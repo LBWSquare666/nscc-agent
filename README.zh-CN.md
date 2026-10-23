@@ -15,19 +15,14 @@
 
 ## 为什么需要它
 
-NSCC 只能用密码登录，你电脑上的 agent 登不上去；Claude Code 的官方安装命令在 NSCC 上又被拦截。结果实验没人盯：作业跑十分钟就挂了，第二天早上你才发现。
+让 agent 在 NSCC 上干活有两个难点：
+
+- **只能用密码登录。** ASPIRE 2A 登录节点不支持 SSH key，你电脑上的 agent 没法自己登录。
+- **按 Claude 官方文档手动安装会失败。** 照 [Claude Code 文档](https://code.claude.com/docs/en/overview) 运行 `curl -fsSL https://claude.ai/install.sh | bash`，会报 `SSL_ERROR_SYSCALL`，因为 NSCC 拦截了 `claude.ai`；改用 `npm install` 也不行，`registry.npmjs.org` 同样被拦截。解决办法见 [`on-nscc.md`](plugins/nscc-agent/skills/nscc/references/on-nscc.md#1-install)。
+
+结果实验没人盯：作业跑十分钟就挂了，第二天早上你才发现。
 
 **nscc-agent** 解决的就是这个问题。你在自己的终端里**登录一次**，agent 就借这次登录去上传代码、配环境、提交 PBS 作业，**一直盯到作业结束，读日志、修错误、重新提交**。密码始终只在你自己的终端里输入。
-
-一次对话大概是这样：
-
-```text
-你     ▸ 在 NSCC 上用 1 张卡微调 configs/lora.yaml，帮我盯着。
-Agent  ▸ 已上传代码（412 MB，排除了 .venv）→ 作业 25936201 提交到 g1，3 分钟后开始运行。
-       ▸ 40 分钟：loss 1.92 → 1.31，显存 18 GB，预计还要 2 小时 10 分钟。
-       ▸ 作业失败：评估时 CUDA out of memory。评估 batch 减半，从第 1200 步续跑 → 25936288。
-       ▸ 完成。退出码 0，最佳 val loss 1.07。结果已拷回 runs/lora-0423/。
-```
 
 ## 两种用法
 

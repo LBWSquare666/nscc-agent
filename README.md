@@ -15,19 +15,14 @@ English · [简体中文](README.zh-CN.md)
 
 ## Why
 
-NSCC only accepts passwords, so an agent on your laptop can't log in, and the official Claude Code installer is blocked on NSCC. Experiments end up watched by nobody: a job crashes ten minutes in and you find out the next morning.
+Getting a coding agent to work on NSCC runs into two problems:
+
+- **Passwords only.** ASPIRE 2A login nodes don't accept SSH keys, so an agent on your laptop can't log in by itself.
+- **The official Claude Code install fails on NSCC.** Following the [Claude Code docs](https://code.claude.com/docs/en/overview), `curl -fsSL https://claude.ai/install.sh | bash` stops with `SSL_ERROR_SYSCALL` because NSCC blocks `claude.ai`, and `npm install` fails because `registry.npmjs.org` is blocked too. The fix is in [`on-nscc.md`](plugins/nscc-agent/skills/nscc/references/on-nscc.md#1-install).
+
+So experiments end up watched by nobody: a job crashes ten minutes in and you find out the next morning.
 
 **nscc-agent** fixes that. You log in **once** in your own terminal; the agent reuses that login to upload code, set up environments, submit PBS jobs, **watch them until they finish, read the logs, fix failures and resubmit**. Your password never leaves your terminal.
-
-An example session:
-
-```text
-You    ▸ Fine-tune configs/lora.yaml on 1 GPU on NSCC and watch it.
-Agent  ▸ Uploaded code (412 MB, .venv excluded) → submitted 25936201 to g1, started in 3 min.
-       ▸ 40 min: loss 1.92 → 1.31, 18 GB GPU memory, ETA 2 h 10 min.
-       ▸ Job failed: CUDA out of memory at eval. Halved eval batch size, resumed from step 1200 → 25936288.
-       ▸ Done. Exit 0, best val loss 1.07. Results copied to runs/lora-0423/.
-```
 
 ## Two ways to run it
 
