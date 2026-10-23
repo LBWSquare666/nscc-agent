@@ -15,9 +15,9 @@
 
 ## 为什么需要它
 
-NSCC 上装不了、也跑不了 Claude Code 或 Codex；NSCC 又只能用密码登录，所以你电脑上的 agent 也登不上去。结果实验没人盯：作业跑十分钟就挂了，第二天早上你才发现。
+NSCC 只能用密码登录，你电脑上的 agent 登不上去；Claude Code 的官方安装命令在 NSCC 上又被拦截。结果实验没人盯：作业跑十分钟就挂了，第二天早上你才发现。
 
-**nscc-agent** 解决的就是这个问题。你在自己的终端里**登录一次**，你电脑上的 agent 就复用这条 SSH 连接：上传代码、配环境、提交 PBS 作业，**一直盯到作业结束，读日志、修错误、重新提交**。密码始终只在你自己的终端里输入。
+**nscc-agent** 解决的就是这个问题。你在自己的终端里**登录一次**，agent 就借这次登录去上传代码、配环境、提交 PBS 作业，**一直盯到作业结束，读日志、修错误、重新提交**。密码始终只在你自己的终端里输入。
 
 一次对话大概是这样：
 
@@ -28,6 +28,38 @@ Agent  ▸ 已上传代码（412 MB，排除了 .venv）→ 作业 25936201 提�
        ▸ 作业失败：评估时 CUDA out of memory。评估 batch 减半，从第 1200 步续跑 → 25936288。
        ▸ 完成。退出码 0，最佳 val loss 1.07。结果已拷回 runs/lora-0423/。
 ```
+
+## 两种用法
+
+| | **A. agent 在你的电脑上**（默认） | **B. agent 在 NSCC 上** |
+|---|---|---|
+| 怎么做 | 你电脑上的 agent 通过你开的 SSH 连接操作 NSCC | Claude Code 装在登录节点上，放在 `tmux` 里常驻，用 [Remote Control](https://code.claude.com/docs/en/remote-control) 从手机或浏览器操作 |
+| 你的电脑 | 实验期间必须一直开机、联网 | 只在启动时需要，之后可以关机 |
+| 支持的 agent | Claude Code、Codex | 只有 Claude Code |
+| 怎么装 | [快速开始](#快速开始) | [`on-nscc.md`](plugins/nscc-agent/skills/nscc/references/on-nscc.md) |
+
+**A. agent 在你的电脑上**
+
+- ✅ Claude Code 和 Codex 都能用，终端、桌面应用、IDE 里都行。
+- ✅ 代码和结果留在你本地仓库，用 `put`/`get` 同步。
+- ✅ NSCC 上什么都不用装，不占共享的登录节点，Claude 的登录状态只在你自己电脑上。
+- ✅ 什么账号都行，API key 也可以。
+- ❌ 电脑必须一直不休眠、不断网。一休眠或换网络，连接就断，要重新输密码；想让它通宵盯实验，就得有台电脑一直开着（比如放在实验室）。
+- ❌ Windows 只能在 WSL2 里用。
+- ❌ 每条命令都要走一次 SSH，代码还得先上传。
+
+**B. agent 在 NSCC 上**
+
+- ✅ 电脑可以关机：在 Claude 手机应用或 claude.ai/code 上随时随地查看、下指令。
+- ✅ 不存在笔记本休眠、换网络导致掉线的问题；不用上传，作业、日志、文件直接就在手边。
+- ✅ 启动只需要一个连着 NSCC 的终端（VS Code Remote-SSH 就够），Windows 不用装 WSL。
+- ❌ 只能用 Claude Code，而且要从 `downloads.claude.ai` 安装，因为 `claude.ai` 和 npm 在 NSCC 上被拦截。
+- ❌ Remote Control 需要 claude.ai 的 Pro、Max、Team 或 Enterprise 账号登录（不能用 API key）；Team/Enterprise 还要组织 Owner 先打开开关。**尚未在 NSCC 上实测。**
+- ❌ 常驻在两个登录节点之一的 `tmux` 里。登录节点重启、维护，或者 NSCC 清理长时间运行的进程，都会让它停掉，需要有人输密码登录后重新启动。
+- ❌ 跑在共享的登录节点上：只能做轻量操作，你的 Claude 登录凭证也存在那里的 `~/.claude` 里。
+- ❌ 代码在 NSCC 上，要在那边改，或者在登录节点上 `git pull`。
+
+白天在电脑前用 A，晚上和周末的长实验用 B，两者可以同时使用、互不冲突。
 
 ## 安装
 
@@ -51,6 +83,8 @@ curl -fsSL https://raw.githubusercontent.com/LBWSquare666/nscc-agent/main/instal
 </details>
 
 ## 快速开始
+
+下面是用法 A。用法 B 按 [`on-nscc.md`](plugins/nscc-agent/skills/nscc/references/on-nscc.md) 操作：在 NSCC 上装好 Claude Code 和这个 skill，在 `tmux` 里运行 `claude --remote-control`，然后用手机打开这个会话。
 
 1. **写下你的账号信息**（不是密码，每台电脑写一次）：
 
@@ -96,6 +130,20 @@ skill 教 agent NSCC 的工作流程和规则，具体操作由一个小脚本 [
 
 电脑休眠了，作业照样在 NSCC 上跑。重新登录后，agent 会从作业记录接着盯。
 
+用法 B 里，agent 和 `nscc.sh` 都跑在登录节点上，只有对话内容经过 Anthropic 中转：
+
+```mermaid
+flowchart LR
+  P[手机 / 浏览器<br/>Claude 应用 · claude.ai/code] <-->|Remote Control| R[Anthropic]
+  subgraph N[NSCC 登录节点]
+    C[tmux 里的 Claude Code<br/>+ nscc skill] -->|nscc.sh 直接执行| Q[qsub · qstat · 日志]
+  end
+  C -->|只发出站 HTTPS| R
+  Q --> G[GPU 作业]
+```
+
+`nscc.sh` 发现自己在 `asp2a-login*` 主机上时会直接执行命令，所以两种用法用的是同一个 skill。
+
 ## 安全
 
 - agent 看不到、不代输、不保存你的密码。不用 `sshpass`、`expect`，也不用密码文件。
@@ -110,6 +158,7 @@ skill 教 agent NSCC 的工作流程和规则，具体操作由一个小脚本 [
 | macOS、Linux | ✅ |
 | Windows | ✅ 在 **WSL2** 里用（agent 也跑在 WSL 里）。Windows 自带的 OpenSSH 不支持连接复用 |
 | NSCC 系统 | 已在 **ASPIRE 2A**（NTU 登录节点，2026 年 10 月）实测。其他登录节点改 `NSCC_HOST` |
+| 用法 B | Claude Code 2.1.309 已在 `asp2a-login-ntu01` 上装好并运行（2026 年 10 月）。从 NSCC 开 Remote Control 尚未实测 |
 
 ## 值得知道的 NSCC 规则
 
@@ -126,7 +175,9 @@ skill 教 agent NSCC 的工作流程和规则，具体操作由一个小脚本 [
 
 **能用 SSH key 吗？** ASPIRE 2A 登录节点目前只接受密码，所以才需要复用连接。
 
-**关掉对话后 agent 还会盯吗？** 不会。agent 跑在你的电脑上，长实验期间要让会话和电脑都开着。作业本身不受影响。
+**关掉对话后 agent 还会盯吗？** 用法 A 不会：agent 跑在你的电脑上，长实验期间要让会话和电脑都开着。用法 B 会，只要它在 NSCC 上的 `tmux` 还在。作业本身两种情况都不受影响。
+
+**必须在校内或连 VPN 吗？** NTU 的 `aspire2antu.nscc.sg` 不用，在校外也能直接连。其他学校的部分登录地址需要先连本校 VPN。
 
 **总是让我重新登录？** 电脑休眠或换了网络，连接就断了。再运行一次登录命令即可。
 

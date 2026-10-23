@@ -15,9 +15,9 @@ English · [简体中文](README.zh-CN.md)
 
 ## Why
 
-You can't run Claude Code or Codex on NSCC, and NSCC only accepts passwords, so an agent on your laptop can't log in either. Experiments end up watched by nobody: a job crashes ten minutes in and you find out the next morning.
+NSCC only accepts passwords, so an agent on your laptop can't log in, and the official Claude Code installer is blocked on NSCC. Experiments end up watched by nobody: a job crashes ten minutes in and you find out the next morning.
 
-**nscc-agent** fixes that. You log in **once** in your own terminal; the agent on your computer reuses that SSH connection to upload code, set up environments, submit PBS jobs, **watch them until they finish, read the logs, fix failures and resubmit**. Your password never leaves your terminal.
+**nscc-agent** fixes that. You log in **once** in your own terminal; the agent reuses that login to upload code, set up environments, submit PBS jobs, **watch them until they finish, read the logs, fix failures and resubmit**. Your password never leaves your terminal.
 
 An example session:
 
@@ -28,6 +28,38 @@ Agent  ▸ Uploaded code (412 MB, .venv excluded) → submitted 25936201 to g1, 
        ▸ Job failed: CUDA out of memory at eval. Halved eval batch size, resumed from step 1200 → 25936288.
        ▸ Done. Exit 0, best val loss 1.07. Results copied to runs/lora-0423/.
 ```
+
+## Two ways to run it
+
+| | **A. Agent on your computer** (default) | **B. Agent on NSCC** |
+|---|---|---|
+| How | Agent on your laptop drives NSCC through an SSH socket you opened | Claude Code installed on the login node, kept alive in `tmux`, steered from your phone or browser with [Remote Control](https://code.claude.com/docs/en/remote-control) |
+| Your computer | Must stay on and online for the whole run | Only to start it; can be off afterwards |
+| Agents | Claude Code, Codex | Claude Code only |
+| Setup | [Quick start](#quick-start) | [`on-nscc.md`](plugins/nscc-agent/skills/nscc/references/on-nscc.md) |
+
+**A. Agent on your computer**
+
+- ✅ Works with Claude Code and Codex, in any client (terminal, desktop app, IDE).
+- ✅ Code and results stay in your local repo; `put`/`get` sync them.
+- ✅ Nothing installed on NSCC, nothing running on the shared login node, your Claude login stays on your machine.
+- ✅ Any account type, API keys included.
+- ❌ The computer must stay awake and online. Sleep or a network change drops the socket, and you have to type your password again, so overnight runs need a machine left on (e.g. in the lab).
+- ❌ Windows needs WSL2.
+- ❌ Every command is an SSH round trip, and code has to be uploaded.
+
+**B. Agent on NSCC**
+
+- ✅ Your computer can be off: watch and steer from the Claude app or claude.ai/code, from anywhere.
+- ✅ No socket to drop when your laptop sleeps or changes network; no uploads, the agent sees jobs, logs and files directly.
+- ✅ Starting it only needs a terminal on NSCC (VS Code Remote-SSH is enough), so no WSL on Windows.
+- ❌ Claude Code only, installed from `downloads.claude.ai` because `claude.ai` and npm are blocked on NSCC.
+- ❌ Remote Control needs a claude.ai Pro, Max, Team or Enterprise login (no API key); on Team/Enterprise an Owner must enable it. **Not yet verified on NSCC.**
+- ❌ Lives in `tmux` on one of two login nodes. A login-node reboot, maintenance, or NSCC killing long-running processes stops it, and someone has to log in with the password to restart it.
+- ❌ Runs on a shared login node: light work only, and your Claude login token is stored in `~/.claude` there.
+- ❌ Your code lives on NSCC; edit it there or `git pull` it on the login node.
+
+Use A at your desk and B for overnight and weekend runs; they don't conflict.
 
 ## Install
 
@@ -51,6 +83,8 @@ Copies the skill to `~/.claude/skills/nscc` and `~/.agents/skills/nscc`. Use `ba
 </details>
 
 ## Quick start
+
+This is way A. For way B, follow [`on-nscc.md`](plugins/nscc-agent/skills/nscc/references/on-nscc.md): install Claude Code and this skill on NSCC, start `claude --remote-control` inside `tmux`, then open the session from your phone.
 
 1. **Tell it who you are** (not secrets; once per computer):
 
@@ -96,6 +130,20 @@ The skill teaches the agent the NSCC workflow and rules; a small script, [`nscc.
 
 If your laptop sleeps, jobs keep running on NSCC. Log in again and the agent picks up from the job history.
 
+In way B the agent and `nscc.sh` run on the login node, and only the chat travels through Anthropic:
+
+```mermaid
+flowchart LR
+  P[Phone / browser<br/>Claude app · claude.ai/code] <-->|Remote Control| R[Anthropic]
+  subgraph N[NSCC login node]
+    C[Claude Code in tmux<br/>+ nscc skill] -->|nscc.sh runs directly| Q[qsub · qstat · logs]
+  end
+  C -->|outbound HTTPS only| R
+  Q --> G[GPU jobs]
+```
+
+`nscc.sh` notices it is on an `asp2a-login*` host and runs commands directly, so the same skill works in both ways.
+
 ## Security
 
 - The agent never sees, types or stores your password. No `sshpass`, `expect` or password files.
@@ -110,6 +158,7 @@ If your laptop sleeps, jobs keep running on NSCC. Log in again and the agent pic
 | macOS, Linux | ✅ |
 | Windows | ✅ in **WSL2** (run the agent inside WSL). Native Windows OpenSSH has no connection sharing |
 | NSCC systems | Tested on **ASPIRE 2A** (NTU login, Oct 2026). Other login hosts: set `NSCC_HOST` |
+| Way B | Claude Code 2.1.309 installed and running on `asp2a-login-ntu01` (Oct 2026). Remote Control from NSCC not yet verified |
 
 ## NSCC rules worth knowing
 
@@ -126,7 +175,9 @@ More: [PBS](plugins/nscc-agent/skills/nscc/references/pbs.md) · [environment](p
 
 **Can I use an SSH key instead?** Not on ASPIRE 2A login nodes today; they accept passwords only. That's why the socket is needed.
 
-**Does the agent keep watching if I close the chat?** No. The agent runs on your computer, so keep the session (and the computer) on for long runs. Jobs themselves don't depend on it.
+**Does the agent keep watching if I close the chat?** In way A, no: the agent runs on your computer, so keep the session (and the computer) on for long runs. In way B, yes, as long as its `tmux` session on NSCC is alive. Jobs themselves don't depend on either.
+
+**Do I need to be on campus or on a VPN?** Not for the NTU host `aspire2antu.nscc.sg`, which is reachable off campus. Some other institutions' hosts need their VPN first.
 
 **It keeps asking me to log in.** Your computer slept or changed network, which closes the connection. Run the login command again.
 
