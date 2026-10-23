@@ -11,6 +11,8 @@ Tested in October 2026 on ASPIRE 2A GPU nodes. Check NSCC's own documentation ([
 
 `aspire2antu.nscc.sg` lands on one of two login nodes at random; a `tmux` session lives only on the node that started it.
 
+From the login node, `claude.ai` and `registry.npmjs.org` are blocked; `downloads.claude.ai` and `api.anthropic.com` are reachable (see `on-nscc.md`).
+
 ## Storage
 
 | Path | Size | Use |
