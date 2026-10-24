@@ -4,6 +4,18 @@ The other way to use this skill: install Claude Code on the ASPIRE 2A login node
 
 Install tested in October 2026 on `asp2a-login-ntu01` (Claude Code 2.1.309). **Remote Control on NSCC has not been verified yet**; see [step 4](#4-remote-control).
 
+```mermaid
+flowchart LR
+  P[Phone / browser<br/>Claude app · claude.ai/code] <-->|Remote Control| R[Anthropic]
+  subgraph N[NSCC login node]
+    C[Claude Code in tmux<br/>+ nscc skill] -->|nscc.sh runs directly| Q[qsub · qstat · logs]
+  end
+  C -->|outbound HTTPS only| R
+  Q --> G[GPU jobs]
+```
+
+`nscc.sh` notices it is on an `asp2a-login*` host and runs commands directly, so the same skill works in both ways.
+
 ## Which way to use
 
 | | A. Agent on your computer (default) | B. Agent on NSCC (this page) |
