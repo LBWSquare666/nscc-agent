@@ -2,13 +2,15 @@
 # nscc.sh — lets an AI coding agent (Claude Code, Codex) on your computer drive NSCC through an
 # SSH ControlMaster socket that *you* opened once with your own password.
 #
-# It never asks for, stores or forwards a password. If the connection is not open it prints the
-# login command for you to run in your own terminal, and exits 2.
+# It never asks for, stores or forwards a password. If the connection is not open it first tries
+# to open it with an SSH key (hosts that accept keys, e.g. aspire2a.nus.edu.sg); if that fails it
+# prints the login command for you to run in your own terminal, and exits 2.
 #
 # Settings: environment variables, else KEY=value lines in ~/.config/nscc/config
 #   NSCC_USER     NSCC username                      (required)
 #   NSCC_HOST     login host                         (default aspire2antu.nscc.sg)
 #   NSCC_PROJECT  PBS project id, added as qsub -P   (for submit)
+#   NSCC_KEY      SSH private key for key login      (default: ~/.ssh/config and ssh-agent)
 #   NSCC_SOCKET   control socket                     (default ~/.ssh/cm/nscc-<user>@<host>.sock)
 #   NSCC_POLL     seconds between checks in wait     (default 60)
 #   NSCC_LOCAL    1 = the agent runs on NSCC itself  (default: 1 on asp2a-login* hosts, else 0)
@@ -35,7 +37,7 @@ set -euo pipefail
 CONF="${XDG_CONFIG_HOME:-$HOME/.config}/nscc/config"
 if [[ -f "$CONF" ]]; then
   while IFS='=' read -r k v; do
-    [[ "$k" =~ ^NSCC_(USER|HOST|PROJECT|SOCKET|POLL|LOCAL)$ ]] || continue
+    [[ "$k" =~ ^NSCC_(USER|HOST|PROJECT|KEY|SOCKET|POLL|LOCAL)$ ]] || continue
     [[ -n "${!k:-}" ]] || export "$k=$v"
   done < <(grep -E '^NSCC_[A-Z]+=' "$CONF")
 fi
@@ -77,10 +79,25 @@ r() {
   return $rc
 }
 
+alive() { ssh -O check -o "ControlPath=$NSCC_SOCKET" "$(target)" >/dev/null 2>&1; }
+
+# Open the socket without a password. Succeeds only if the host accepts an SSH key
+# (NSCC_KEY, ~/.ssh/config or ssh-agent); BatchMode makes it fail fast instead of prompting.
+key_login() {
+  local key=()
+  [[ -n "${NSCC_KEY:-}" ]] && key=(-i "${NSCC_KEY/#\~/$HOME}" -o IdentitiesOnly=yes)
+  mkdir -p -m 700 "$(dirname "$NSCC_SOCKET")" 2>/dev/null || return 1
+  ssh ${key[@]+"${key[@]}"} -o BatchMode=yes -o ConnectTimeout=20 -o ControlMaster=auto \
+    -o "ControlPath=$NSCC_SOCKET" -o ControlPersist=yes -o ServerAliveInterval=60 \
+    "$(target)" true >/dev/null 2>&1
+}
+
 connect() {
   [[ "$NSCC_LOCAL" == 1 ]] && return
   [[ -n "${NSCC_USER:-}" ]] || die "NSCC_USER is not set. Export it, or put NSCC_USER=<username> in $CONF"
-  ssh -O check -o "ControlPath=$NSCC_SOCKET" "$(target)" >/dev/null 2>&1 || lost
+  alive && return
+  key_login && alive && return
+  lost
 }
 
 not_local() {
@@ -135,6 +152,6 @@ case "$cmd" in
   close)  [[ "$NSCC_LOCAL" == 1 ]] && exit 0
           [[ -n "${NSCC_USER:-}" ]] || die "NSCC_USER is not set"
           ssh -O exit -o "ControlPath=$NSCC_SOCKET" "$(target)" 2>&1 || true ;;
-  help|-h|--help) sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//' ;;
+  help|-h|--help) sed -n '2,34p' "$0" | sed 's/^# \{0,1\}//' ;;
   *)      die "unknown command '$cmd' (try: nscc.sh help)" ;;
 esac

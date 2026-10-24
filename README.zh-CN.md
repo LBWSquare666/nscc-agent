@@ -17,7 +17,7 @@
 
 让 agent 在 NSCC 上干活有两个难点：
 
-- **只能用密码登录。** ASPIRE 2A 登录节点不支持 SSH key，你电脑上的 agent 没法自己登录。
+- **大多只能用密码登录。** NTU 的登录地址 `aspire2antu.nscc.sg` 不支持 SSH key，你电脑上的 agent 没法自己登录。（据说 NUS 的 `aspire2a.nus.edu.sg` 支持 NSCC 门户发的 key，这时 `nscc.sh` 能自己登录，见[常见问题](#常见问题)。）
 - **按 Claude 官方文档手动安装会失败。** 照 [Claude Code 文档](https://code.claude.com/docs/en/overview) 运行 `curl -fsSL https://claude.ai/install.sh | bash`，会报 `SSL_ERROR_SYSCALL`，因为 NSCC 拦截了 `claude.ai`；改用 `npm install` 也不行，`registry.npmjs.org` 同样被拦截。解决办法见 [`on-nscc.md`](plugins/nscc-agent/skills/nscc/references/on-nscc.md#1-install)。
 
 结果实验没人盯：作业跑十分钟就挂了，第二天早上你才发现。
@@ -39,7 +39,7 @@
 - ✅ 代码和结果留在你本地仓库，用 `put`/`get` 同步。
 - ✅ NSCC 上什么都不用装，不占共享的登录节点，Claude 的登录状态只在你自己电脑上。
 - ✅ 什么账号都行，API key 也可以。
-- ❌ 电脑必须一直不休眠、不断网。一休眠或换网络，连接就断，要重新输密码；想让它通宵盯实验，就得有台电脑一直开着（比如放在实验室）。
+- ❌ 电脑必须一直不休眠、不断网。一休眠或换网络，连接就断；只能用密码的地址要重新输密码，想让它通宵盯实验，就得有台电脑一直开着（比如放在实验室）。用 SSH key 的话会自动重连。
 - ❌ Windows 只能在 WSL2 里用。
 - ❌ 每条命令都要走一次 SSH，代码还得先上传。
 
@@ -91,7 +91,9 @@ curl -fsSL https://raw.githubusercontent.com/LBWSquare666/nscc-agent/main/instal
    EOF
    ```
 
-2. **让 agent 连接。** 说"连上 NSCC"（Claude Code 里也可以用 `/nscc-agent:nscc`，Codex 里用 `$nscc`）。它会给你一条 `ssh` 命令，**你在自己的终端里运行**并输入密码。连接会一直保持，直到你关掉它或电脑断网。
+   NUS 地址加 SSH key：写 `NSCC_HOST=aspire2a.nus.edu.sg`，再加一行 `NSCC_KEY=~/.ssh/<你的 key>`（或者在 `~/.ssh/config` 里配好 key）。
+
+2. **让 agent 连接。** 说"连上 NSCC"（Claude Code 里也可以用 `/nscc-agent:nscc`，Codex 里用 `$nscc`）。SSH key 可用时它会自己连上；否则它会给你一条 `ssh` 命令，**你在自己的终端里运行**并输入密码。连接会一直保持，直到你关掉它或电脑断网。
 
 3. **把实验交给它。**
 
@@ -142,7 +144,7 @@ flowchart LR
 ## 安全
 
 - agent 看不到、不代输、不保存你的密码。不用 `sshpass`、`expect`，也不用密码文件。
-- 只用你自己开的那条连接；socket 放在 `~/.ssh/cm/`，只有你能读。随时可以让 agent 关掉它（`nscc.sh close`）。
+- 只用你自己的登录：你开的那条连接，或者登录地址支持时用你的 SSH key。socket 放在 `~/.ssh/cm/`，只有你能读。随时可以让 agent 关掉它（`nscc.sh close`）。
 - 作业需要的 API key 由**你自己**运行的一条命令写到 NSCC 上（`read -s`，不回显），不会贴进对话。
 - 和任何 SSH 会话一样：能在你电脑上以你身份执行命令的人，也能用这条已打开的连接。
 
@@ -168,13 +170,13 @@ flowchart LR
 
 ## 常见问题
 
-**能用 SSH key 吗？** ASPIRE 2A 登录节点目前只接受密码，所以才需要复用连接。
+**能用 SSH key 吗？** 看登录地址。NTU 的 `aspire2antu.nscc.sg` 只接受密码（`ssh -v` 显示 `gssapi-keyex,gssapi-with-mic,password`），所以才需要复用连接。据说 NUS 的 `aspire2a.nus.edu.sg` 可以用 NSCC 门户生成的 key 登录（校外要先连 NUS VPN；我们没实测）。设好 `NSCC_KEY`，`nscc.sh` 会自己建立连接、断了自己重连，不用输密码。
 
 **关掉对话后 agent 还会盯吗？** 用法 A 不会：agent 跑在你的电脑上，长实验期间要让会话和电脑都开着。用法 B 会，只要它在 NSCC 上的 `tmux` 还在。作业本身两种情况都不受影响。
 
-**必须在校内或连 VPN 吗？** NTU 的 `aspire2antu.nscc.sg` 不用，在校外也能直接连。其他学校的部分登录地址需要先连本校 VPN。
+**必须在校内或连 VPN 吗？** NTU 的 `aspire2antu.nscc.sg` 不用，在校外也能直接连。NUS 的 `aspire2a.nus.edu.sg` 和其他学校的部分登录地址需要先连本校 VPN。
 
-**总是让我重新登录？** 电脑休眠或换了网络，连接就断了。再运行一次登录命令即可。
+**总是让我重新登录？** 电脑休眠或换了网络，连接就断了。再运行一次登录命令即可；登录地址支持 SSH key 的话，改用 key 就不用反复登录。
 
 **VS Code Remote-SSH 还能用吗？** 能，两者互不影响；VS Code 自己开连接、自己问密码。
 

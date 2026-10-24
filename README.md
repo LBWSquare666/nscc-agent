@@ -17,7 +17,7 @@ English · [简体中文](README.zh-CN.md)
 
 Getting a coding agent to work on NSCC runs into two problems:
 
-- **Passwords only.** ASPIRE 2A login nodes don't accept SSH keys, so an agent on your laptop can't log in by itself.
+- **Passwords only (on most hosts).** The NTU login host `aspire2antu.nscc.sg` doesn't accept SSH keys, so an agent on your laptop can't log in by itself. (The NUS host `aspire2a.nus.edu.sg` reportedly accepts keys from the NSCC portal; `nscc.sh` then logs in by itself, see [FAQ](#faq).)
 - **The official Claude Code install fails on NSCC.** Following the [Claude Code docs](https://code.claude.com/docs/en/overview), `curl -fsSL https://claude.ai/install.sh | bash` stops with `SSL_ERROR_SYSCALL` because NSCC blocks `claude.ai`, and `npm install` fails because `registry.npmjs.org` is blocked too. The fix is in [`on-nscc.md`](plugins/nscc-agent/skills/nscc/references/on-nscc.md#1-install).
 
 So experiments end up watched by nobody: a job crashes ten minutes in and you find out the next morning.
@@ -39,7 +39,7 @@ So experiments end up watched by nobody: a job crashes ten minutes in and you fi
 - ✅ Code and results stay in your local repo; `put`/`get` sync them.
 - ✅ Nothing installed on NSCC, nothing running on the shared login node, your Claude login stays on your machine.
 - ✅ Any account type, API keys included.
-- ❌ The computer must stay awake and online. Sleep or a network change drops the socket, and you have to type your password again, so overnight runs need a machine left on (e.g. in the lab).
+- ❌ The computer must stay awake and online. Sleep or a network change drops the socket, and on password-only hosts you have to type your password again, so overnight runs need a machine left on (e.g. in the lab). With an SSH key it reconnects by itself.
 - ❌ Windows needs WSL2.
 - ❌ Every command is an SSH round trip, and code has to be uploaded.
 
@@ -91,7 +91,9 @@ This is way A. For way B, follow [`on-nscc.md`](plugins/nscc-agent/skills/nscc/r
    EOF
    ```
 
-2. **Ask your agent to connect.** "Connect to NSCC" (or `/nscc-agent:nscc` in Claude Code, `$nscc` in Codex). It replies with one `ssh` command. **Run it in your own terminal** and type your password. The connection stays open until you close it or your computer goes offline.
+   NUS host with an SSH key: use `NSCC_HOST=aspire2a.nus.edu.sg` and add `NSCC_KEY=~/.ssh/<your key>` (or set the key in `~/.ssh/config`).
+
+2. **Ask your agent to connect.** "Connect to NSCC" (or `/nscc-agent:nscc` in Claude Code, `$nscc` in Codex). With a working SSH key it connects by itself. Otherwise it replies with one `ssh` command: **run it in your own terminal** and type your password. The connection stays open until you close it or your computer goes offline.
 
 3. **Hand over the experiment.**
 
@@ -142,7 +144,7 @@ flowchart LR
 ## Security
 
 - The agent never sees, types or stores your password. No `sshpass`, `expect` or password files.
-- Only the socket you opened is used; it lives in `~/.ssh/cm/` and is readable only by you. Ask the agent to close it any time (`nscc.sh close`).
+- Only your own login is used: the socket you opened, or your SSH key if the host accepts one. The socket lives in `~/.ssh/cm/` and is readable only by you. Ask the agent to close it any time (`nscc.sh close`).
 - API keys that a job needs are written on NSCC by a command **you** run (`read -s`, no echo), never pasted into the chat.
 - Anyone who can run commands as you on your computer can use the open socket, just as with any SSH session.
 
@@ -168,13 +170,13 @@ More: [PBS](plugins/nscc-agent/skills/nscc/references/pbs.md) · [environment](p
 
 ## FAQ
 
-**Can I use an SSH key instead?** Not on ASPIRE 2A login nodes today; they accept passwords only. That's why the socket is needed.
+**Can I use an SSH key instead?** Depends on the login host. The NTU host `aspire2antu.nscc.sg` accepts passwords only (`ssh -v` lists `gssapi-keyex,gssapi-with-mic,password`), which is why the socket is needed. The NUS host `aspire2a.nus.edu.sg` reportedly accepts a key generated in the NSCC portal (needs NUS VPN off campus; not tested by us). Set `NSCC_KEY` and `nscc.sh` opens and reopens the connection by itself, with no password step.
 
 **Does the agent keep watching if I close the chat?** In way A, no: the agent runs on your computer, so keep the session (and the computer) on for long runs. In way B, yes, as long as its `tmux` session on NSCC is alive. Jobs themselves don't depend on either.
 
-**Do I need to be on campus or on a VPN?** Not for the NTU host `aspire2antu.nscc.sg`, which is reachable off campus. Some other institutions' hosts need their VPN first.
+**Do I need to be on campus or on a VPN?** Not for the NTU host `aspire2antu.nscc.sg`, which is reachable off campus. The NUS host `aspire2a.nus.edu.sg` and some other institutions' hosts need their VPN first.
 
-**It keeps asking me to log in.** Your computer slept or changed network, which closes the connection. Run the login command again.
+**It keeps asking me to log in.** Your computer slept or changed network, which closes the connection. Run the login command again, or use an SSH key if your host accepts one.
 
 **VS Code Remote-SSH?** Works side by side; it opens its own connection and asks for your password itself.
 

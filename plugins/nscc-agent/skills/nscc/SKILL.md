@@ -5,7 +5,7 @@ description: Run and watch experiments on Singapore's NSCC supercomputer (ASPIRE
 
 # NSCC (ASPIRE 2A) for coding agents
 
-NSCC accepts **passwords only**, which you must never type, store or forward. You run in one of two places:
+Most NSCC login hosts accept **passwords only**, which you must never type, store or forward (a host that accepts the user's SSH key is the exception; `nscc.sh` uses the key by itself). You run in one of two places:
 
 - **A. On the user's computer** (usual): you reach NSCC through an SSH ControlMaster socket the user opened **once** in their own terminal. Every command below reuses that socket, with no password.
 - **B. On the NSCC login node itself** (`hostname` starts with `asp2a-login`): Claude Code was installed there and the user may be steering you from their phone through Remote Control. There is no socket; commands run directly. Setup and limits: `references/on-nscc.md`.
@@ -26,7 +26,7 @@ If `nscc.sh check` prints `running on NSCC itself`, skip section 1's connection 
 ## 1. Before anything: settings and connection
 
 1. **Settings.** If `NSCC_USER` is unknown, ask the user for their NSCC username, login host (NTU: `aspire2antu.nscc.sg`; others: see `references/environment.md`) and PBS project id. Suggest they save them as `KEY=value` lines in `~/.config/nscc/config`. These are not secrets.
-2. **Connection.** Run `scripts/nscc.sh check`.
+2. **Connection.** Run `scripts/nscc.sh check`. If the host accepts an SSH key (`NSCC_KEY`, `~/.ssh/config` or ssh-agent; e.g. the NUS host `aspire2a.nus.edu.sg`), it opens the connection by itself.
    - `connected` → continue.
    - exit 2 → it prints one login command. Give that exact command to the user and ask them to run it **in their own terminal** (not through you), type their password, and tell you when it prints a hostname. Then check again.
 3. **Never** use `sshpass`, `expect`, password files, or keyboard automation. Never ask the user to paste a password, token or API key into the chat. If a secret has to reach NSCC, give the user this command to run in their own terminal (reads the secret without echo, writes a 600-mode file):
@@ -64,7 +64,7 @@ If `nscc.sh check` prints `running on NSCC itself`, skip section 1's connection 
    - walltime hit → resubmit with resume.
 6. **Keep a short log** of job ids, what changed and the outcome (in the project, e.g. `docs/experiments.md`), so the user and the next session can follow.
 
-In mode A the socket lives on the user's computer: if it sleeps or goes offline, commands exit 2. Jobs keep running on NSCC, and PBS keeps their history, so nothing is lost: ask the user to log in again, run `jobs`, and carry on with `wait`/`status`. Suggest keeping the machine awake for long runs, or mode B (`references/on-nscc.md`) for overnight ones.
+In mode A the socket lives on the user's computer: if it sleeps or goes offline, commands exit 2. Jobs keep running on NSCC, and PBS keeps their history, so nothing is lost: run `check` first (with an SSH key it reconnects by itself), otherwise ask the user to log in again, run `jobs`, and carry on with `wait`/`status`. Suggest keeping the machine awake for long runs, or mode B (`references/on-nscc.md`) for overnight ones.
 
 ## 4. PBS rules that bite
 
@@ -80,7 +80,8 @@ Details and a job template: `references/pbs.md`.
 Details: `references/environment.md`.
 
 - Work in **scratch** (`/scratch/users/<org>/<user>/`, large but purged periodically — copy results back). Home is ~50 GB: no datasets, venvs or caches there.
-- Large public data and model weights: download **on NSCC** (nodes have direct internet). Long downloads: `nohup … &` or `tmux` on the login node.
+- Large public data and model weights: download **on NSCC** (nodes have direct internet), never through the user's computer. Small files: on the login node. Big models and datasets: a CPU-only PBS job with `snapshot_download` (template in `references/pbs.md`), not `git lfs` and not a long `nohup` on the login node.
+- Gated Hugging Face repos with `HF_HOME` on scratch: copy the token there first, or jobs fail with 401 (`references/environment.md`).
 - Code: compute nodes have no `git`. Sync with `put` (exclude `.venv`, caches, outputs) or ship a `git bundle` and `git pull` it on NSCC.
 - Caches on scratch (`UV_CACHE_DIR`, `UV_PYTHON_INSTALL_DIR`, `XDG_CACHE_HOME`, `HF_HOME`); `uv` venvs on scratch; `PYTHONNOUSERSITE=1` at run time.
 - Driver 570 (CUDA 12.8): cu12x wheels work directly. **cu13x wheels need a container**: `module load apptainer/1.5.0` and `export APPTAINERENV_LD_LIBRARY_PATH=/usr/local/cuda/compat` in the job. Containers run only on compute nodes.

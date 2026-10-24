@@ -35,6 +35,35 @@ nvidia-smi -L
 - Chain jobs: `qsub -W depend=afterany:<jobid> next.pbs`.
 - Several GPUs in one job, one process each: `CUDA_VISIBLE_DEVICES=$i python worker.py --shard $i/$N &` in a loop, then `wait`.
 
+## Large Hugging Face downloads
+
+Run them as a CPU-only job, not on the login node and not with `git lfs` (compute nodes have no git). CPU jobs go to a different queue, so this does not block your GPU job.
+
+```bash
+#!/bin/bash
+#PBS -N hf-download
+#PBS -q normal
+#PBS -l select=1:ncpus=8:mem=32gb
+#PBS -l walltime=12:00:00
+#PBS -j oe
+#PBS -o /scratch/users/<org>/<user>/logs/hf-download.log
+set -euo pipefail
+S=/scratch/users/<org>/<user>
+export HF_HOME=$S/hf UV_CACHE_DIR=$S/cache/uv PYTHONNOUSERSITE=1
+REPO="${REPO:?pass it: qsub -v REPO=org/name}" TYPE="${TYPE:-model}"
+DEST="${DEST:-$S/${TYPE}s/${REPO//\//--}}"
+echo "repo=$REPO type=$TYPE dest=$DEST token=$([[ -s $HF_HOME/token ]] && echo yes || echo no)"
+~/.local/bin/uvx --from 'huggingface_hub[hf_xet]' hf download "$REPO" --repo-type "$TYPE" --local-dir "$DEST" \
+  2>&1 | tee "$S/logs/hf-download-${PBS_JOBID%%.*}.progress"
+du -sh "$DEST"; echo DONE
+```
+
+- Submit: `nscc.sh submit hf-download.pbs -v REPO=Qwen/Qwen3-8B` (add `,TYPE=dataset` for datasets).
+- Resubmitting with the same `DEST` resumes; finished files are skipped.
+- Watch: `tail` the `.progress` file and `du -sh $DEST`. A stall shows as both not changing.
+- Gated repos: copy the token into `$HF_HOME` first (see `environment.md`), or the job fails with 401.
+- Done means `config.json`, tokenizer files and every shard listed in `model.safetensors.index.json` are present.
+
 ## Commands
 
 | Task | Command |
