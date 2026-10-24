@@ -86,7 +86,8 @@ alive() { ssh -O check -o "ControlPath=$NSCC_SOCKET" "$(target)" >/dev/null 2>&1
 key_login() {
   local key=()
   [[ -n "${NSCC_KEY:-}" ]] && key=(-i "${NSCC_KEY/#\~/$HOME}" -o IdentitiesOnly=yes)
-  mkdir -p -m 700 "$(dirname "$NSCC_SOCKET")" 2>/dev/null || return 1
+  local d; d="$(dirname "$NSCC_SOCKET")"
+  { mkdir -p "$d" && chmod 700 "$d"; } 2>/dev/null || return 1
   ssh ${key[@]+"${key[@]}"} -o BatchMode=yes -o ConnectTimeout=20 -o ControlMaster=auto \
     -o "ControlPath=$NSCC_SOCKET" -o ControlPersist=yes -o ServerAliveInterval=60 \
     "$(target)" true >/dev/null 2>&1
