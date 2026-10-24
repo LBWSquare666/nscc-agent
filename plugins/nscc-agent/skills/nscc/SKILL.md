@@ -5,7 +5,7 @@ description: Run and watch experiments on Singapore's NSCC supercomputer (ASPIRE
 
 # NSCC (ASPIRE 2A) for coding agents
 
-Most NSCC login hosts accept **passwords only**, which you must never type, store or forward (a host that accepts the user's SSH key is the exception; `nscc.sh` uses the key by itself). You run in one of two places:
+NSCC logins use **passwords**, which you must never type, store or forward (where the host accepts the user's SSH key, `nscc.sh` uses it by itself). You run in one of two places:
 
 - **A. On the user's computer** (usual): you reach NSCC through an SSH ControlMaster socket the user opened **once** in their own terminal. Every command below reuses that socket, with no password.
 - **B. On the NSCC login node itself** (`hostname` starts with `asp2a-login`): Claude Code was installed there and the user may be steering you from their phone through Remote Control. There is no socket; commands run directly. Setup and limits: `references/on-nscc.md`.
@@ -26,7 +26,7 @@ If `nscc.sh check` prints `running on NSCC itself`, skip section 1's connection 
 ## 1. Before anything: settings and connection
 
 1. **Settings.** If `NSCC_USER` is unknown, ask the user for their NSCC username, login host (NTU: `aspire2antu.nscc.sg`; others: see `references/environment.md`) and PBS project id. Suggest they save them as `KEY=value` lines in `~/.config/nscc/config`. These are not secrets.
-2. **Connection.** Run `scripts/nscc.sh check`. If the host accepts an SSH key (`NSCC_KEY`, `~/.ssh/config` or ssh-agent; e.g. the NUS host `aspire2a.nus.edu.sg`), it opens the connection by itself.
+2. **Connection.** Run `scripts/nscc.sh check`. With an SSH key (`NSCC_KEY`, `~/.ssh/config` or ssh-agent) on a host that accepts it, it connects by itself.
    - `connected` → continue.
    - exit 2 → it prints one login command. Give that exact command to the user and ask them to run it **in their own terminal** (not through you), type their password, and tell you when it prints a hostname. Then check again.
 3. **Never** use `sshpass`, `expect`, password files, or keyboard automation. Never ask the user to paste a password, token or API key into the chat. If a secret has to reach NSCC, give the user this command to run in their own terminal (reads the secret without echo, writes a 600-mode file):

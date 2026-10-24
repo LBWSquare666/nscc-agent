@@ -3,7 +3,7 @@
 # SSH ControlMaster socket that *you* opened once with your own password.
 #
 # It never asks for, stores or forwards a password. If the connection is not open it first tries
-# to open it with an SSH key (hosts that accept keys, e.g. aspire2a.nus.edu.sg); if that fails it
+# to open it with an SSH key (on hosts that accept keys); if that fails it
 # prints the login command for you to run in your own terminal, and exits 2.
 #
 # Settings: environment variables, else KEY=value lines in ~/.config/nscc/config

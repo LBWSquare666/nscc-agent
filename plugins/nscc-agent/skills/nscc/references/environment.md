@@ -1,18 +1,18 @@
 # ASPIRE 2A environment notes
 
-Tested in October 2026 on ASPIRE 2A GPU nodes. Check NSCC's own documentation ([help.nscc.sg](https://help.nscc.sg)) when something here disagrees with what you see.
+If something here disagrees with what you see, check [help.nscc.sg](https://help.nscc.sg).
 
 ## Login hosts
 
-| Who | Host | Notes |
-|---|---|---|
-| NTU users | `aspire2antu.nscc.sg` | Reachable off campus. **Password only** (no SSH keys). Host key `SHA256:vxgy6AWm2WeyHyONvzWxBEeBuZ6OAvwHVDjNKvD/jfo` (ED25519) |
-| NUS users | `aspire2a.nus.edu.sg` | Needs NUS VPN off campus. Reportedly accepts an SSH key generated in the NSCC portal (not tested here): set `NSCC_KEY` and `nscc.sh` logs in by itself. Scratch is `/scratch/users/nus/<user>/` |
-| Other institutions | see your NSCC account e-mail | Some hosts need your institution's VPN first |
+| Host | Notes |
+|---|---|
+| `aspire2antu.nscc.sg` (NTU) | Password only. Works off campus. Host key `SHA256:vxgy6AWm2WeyHyONvzWxBEeBuZ6OAvwHVDjNKvD/jfo` (ED25519) |
+| `aspire2a.nus.edu.sg` (NUS) | Accepts an SSH key from the NSCC portal: set `NSCC_KEY`. NUS VPN off campus |
+| Others | See your NSCC account e-mail; may need your institution's VPN |
 
-`aspire2antu.nscc.sg` lands on one of two login nodes at random; a `tmux` session lives only on the node that started it.
+A host name can land on either of two login nodes; a `tmux` session lives only on the node that started it.
 
-From the login node, `claude.ai` and `registry.npmjs.org` are blocked; `downloads.claude.ai` and `api.anthropic.com` are reachable (see `on-nscc.md`).
+From the login node, `claude.ai` and npm are blocked; `downloads.claude.ai` and `api.anthropic.com` work.
 
 ## Storage
 

@@ -26,18 +26,19 @@ Log in once in your own terminal, and the agent can:
 
 Your password stays in your own terminal; the agent never sees it.
 
-## Why
+## Problems it solves
 
-- **Passwords only.** NSCC login nodes don't accept SSH keys, so an agent can't log in by itself.
-- **The official Claude Code install fails on NSCC.** NSCC blocks `claude.ai` and npm, so the official install command stops with `SSL_ERROR_SYSCALL`.
+- **Nobody watches your experiments.** A job crashes ten minutes in and you find out the next morning.
+- **Agents can't log in to NSCC.** NSCC accepts passwords only, so an agent can't log in by itself.
+- **Claude Code won't install on NSCC.** NSCC blocks `claude.ai` and npm, so the official install fails.
 
 ## Two ways to run it
 
 | | **A. Agent on your computer** (default) | **B. Agent on NSCC** |
 |---|---|---|
-| How | The agent reuses an SSH connection you opened | Claude Code on the login node, kept alive in `tmux`, steered from your phone with Remote Control |
-| Pros | Claude Code and Codex; code stays local; nothing installed on NSCC | Computer can be off; check in from your phone; no drop when your laptop sleeps |
-| Cons | Computer must stay on and online, and you re-type the password after it sleeps; Windows needs WSL2 | Claude Code only, needs a Pro/Max/Team/Enterprise plan; restart it by hand after a login-node reboot |
+| How | The agent reuses an SSH connection you opened | Claude Code on the login node, steered from your phone |
+| Pros | · Claude Code and Codex<br>· Code stays local<br>· Nothing to install on NSCC | · Computer can be off<br>· Check in from your phone<br>· No drop when your laptop sleeps |
+| Cons | · Computer must stay on and online<br>· Re-type the password after it sleeps<br>· Windows needs WSL2 | · Claude Code only<br>· Needs a Pro/Max/Team/Enterprise plan<br>· Restart by hand after a login-node reboot |
 | Setup | [Quick start](#quick-start) | [`on-nscc.md`](plugins/nscc-agent/skills/nscc/references/on-nscc.md) |
 
 Use A at your desk and B for overnight runs; they work side by side.

@@ -26,18 +26,19 @@
 
 密码只在你自己的终端里输入，agent 看不到。
 
-## 为什么需要它
+## 解决什么问题
 
-- **只能用密码登录。** NSCC 登录节点不支持 SSH key，agent 没法自己登录。
-- **按 Claude 官方文档安装会失败。** NSCC 拦截了 `claude.ai` 和 npm，官方安装命令会报 `SSL_ERROR_SYSCALL`。
+- **实验没人盯。** 作业跑十分钟就挂了，第二天早上才发现。
+- **agent 登不上 NSCC。** NSCC 只能用密码登录，agent 没法自己登录。
+- **Claude Code 装不上 NSCC。** NSCC 拦截了 `claude.ai` 和 npm，按官方文档安装会失败。
 
 ## 两种用法
 
 | | **A. agent 在你的电脑上**（默认） | **B. agent 在 NSCC 上** |
 |---|---|---|
-| 怎么用 | agent 复用你开的 SSH 连接 | Claude Code 装在登录节点上，`tmux` 常驻，手机用 Remote Control 操作 |
-| 优点 | Claude Code、Codex 都能用；代码留在本地；NSCC 上不用装东西 | 电脑可以关机；手机随时查看；不会因电脑休眠掉线 |
-| 缺点 | 电脑要一直开机联网，休眠后要重新输密码；Windows 要用 WSL2 | 只支持 Claude Code，要 Pro/Max/Team/Enterprise 账号；登录节点重启后要手动重启 |
+| 怎么用 | agent 复用你开的 SSH 连接 | Claude Code 装在登录节点上，用手机远程操作 |
+| 优点 | · Claude Code、Codex 都能用<br>· 代码留在本地<br>· NSCC 上不用装东西 | · 电脑可以关机<br>· 手机随时查看<br>· 不会因电脑休眠掉线 |
+| 缺点 | · 电脑要一直开机联网<br>· 休眠后要重新输密码<br>· Windows 要用 WSL2 | · 只支持 Claude Code<br>· 需要 Pro/Max/Team/Enterprise 账号<br>· 登录节点重启后要手动重启 |
 | 上手 | [快速开始](#快速开始) | [`on-nscc.md`](plugins/nscc-agent/skills/nscc/references/on-nscc.md) |
 
 白天在电脑前用 A，过夜的长实验用 B，两者可以同时用。
